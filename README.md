@@ -1,4 +1,4 @@
-# Project Intercept: Autonomous Visual Agent for Windows
+# AccessAI: The Cloud-Native Universal Action Model
 
 **A multimodal AI experiment to bridge the gap between natural language and legacy GUI interfaces.**
 
@@ -10,9 +10,12 @@ Robotic Process Automation (RPA) has traditionally relied on "selectors"—DOM I
 For users with motor impairments, this disconnect is even more critical. Existing accessibility tools often rely on application developers implementing specific accessibility APIs. If an app doesn't support them, the user is locked out.
 
 ## 2. The Solution: Visual Action Models (VAM)
-**Intercept** bypasses the underlying code entirely. Instead of hooking into the OS's accessibility tree or the browser's DOM, it uses **Google Gemini 1.5 Pro** to "see" the screen exactly as a human does.
+**AccessAI** bypasses the underlying code entirely. Instead of hooking into the OS's accessibility tree or the browser's DOM, it uses **Google Gemini 1.5 Pro** to "see" the screen exactly as a human does.
 
-By treating the UI as a visual input, Intercept converts natural language intents (e.g., "Find the cheapest shoes on Amazon") into coordinate-based mouse clicks and keystrokes. It is resilient to code changes because it relies on visual semantic understanding, not rigid code selectors.
+*   **Scenario**: An insurance company uses a VB6 application from 1998 to process claims. It has no API.
+*   **AccessAI**: Can visually navigate the archaic menus and input fields just like a human operator, automating data entry tasks that were previously impossible to script.
+
+By treating the UI as a visual input, AccessAI converts natural language intents (e.g., "Find the cheapest shoes on Amazon") into coordinate-based mouse clicks and keystrokes. It is resilient to code changes because it relies on visual semantic understanding, not rigid code selectors.
 
 ## 3. Technical Architecture
 
@@ -52,6 +55,11 @@ sequenceDiagram
 #### **Client (`intercept/client`)**
 *   **Screen Capture**: Uses `mss` for high-performance, cross-platform screen grabbing (avg latency < 10ms).
 *   **Action Execution**: `pyautogui` handles HID simulation. It includes a "Fail-Safe" feature—moving the mouse to the screen corner instantly aborts the agent.
+*   **Scenario**: Verifying a frontend deployment.
+*   **Action**: "Check if the 'Buy Now' button is visible and red."
+*   **AccessAI**: Uses its vision capabilities to assert visual states that code-based tests might miss (e.g., a button covered by a z-index overlay).
+*   **Action**: "Play some jazz."
+*   **AccessAI**: Visually identifies the Spotify icon, clicks it, waits for load, finds the search bar, types "Jazz", and clicks the first playlist. No custom integration required.
 *   **State Management**: Maintains a local `session_id` but relies on the server for state persistence.
 
 #### **Server (`intercept/server`)**
@@ -162,4 +170,4 @@ Security is paramount when giving an AI control over input devices.
 ## 7. Future Roadmap
 *   **Continuous Learning**: Automatically promote successful sessions to the Vector Store.
 *   **Edge Distillation**: Fine-tune a smaller model (Gemini Nano) for local execution to reduce latency.
-*   **Multi-Agent Swarm**: Enable multiple agents to coordinate on complex cross-machine workflows.
+*   **Multi-Agent Swarm**: Enable multiple AccessAI agents coordinating on complex cross-machine workflows.
