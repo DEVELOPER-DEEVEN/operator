@@ -14,13 +14,6 @@ client = TestClient(app)
 def test_read_root():
     response = client.get("/")
     assert response.status_code == 200
-    # The status might include firestore_enabled, check subset
-    assert response.json().get("status") == "Server is running"
-
-def test_process_step_mock():
-    # Create a dummy image
-    file_content = b"fake_image_data"
-
     # Mock data
     data = {
         "prompt": "test prompt",

@@ -1,68 +1,79 @@
 # Intercept: Autonomous Windows Agent
 
-This application allows you to control your Windows computer using natural language prompts backed by Google Gemini.
+Intercept is an enterprise-grade autonomous agent designed to control Windows environments using natural language prompts. It leverages **Google Gemini 1.5 Pro** for multimodal reasoning, **Cloud Spanner** for transactional state management, and **Firestore** for vector-based few-shot learning.
 
-## Prerequisites
+## 🚀 Tech Stack
 
-1. **Python 3.10+** installed on your Windows machine.
-2. **Google Cloud API Key** for Gemini.
-3. **Google Cloud Project** with Firestore enabled (for session logging).
+- **Core AI**: Google Gemini 1.5 Pro (Multimodal Vision & Text)
+- **Backend**: FastAPI (Python 3.10+)
+- **Database (Transactional)**: Google Cloud Spanner
+- **Database (Vector/NoSQL)**: Google Cloud Firestore
+- **Client**: Python (PyAutoGUI, MSS, Requests)
+- **Infrastructure**: Google Cloud Run (Dockerized)
 
-## Installation
+## 🏗️ Architecture
 
-1. Clone this repository or copy the files to your Windows machine.
-2. Create a virtual environment:
-   ```powershell
-   python -m venv venv
-   .\venv\Scripts\activate
-   ```
-3. Install dependencies:
-   ```powershell
-   pip install -r requirements.txt
-   ```
+The system follows a **Client-Server** architecture:
 
-## Running the Application
+1.  **Client (`intercept/client`)**:
+    *   Captures screen state using `mss`.
+    *   Executes low-level OS actions (Click, Type, Scroll) via `pyautogui`.
+    *   Maintains a "Switch Control" listener for accessibility inputs.
+2.  **Server (`intercept/server`)**:
+    *   **API Layer**: FastAPI endpoints handling multipart image uploads.
+    *   **Guardrails**: `GuardrailService` sanitizes inputs (PII redaction) and blocks dangerous commands (`rm -rf`).
+    *   **Reasoning Engine**: Gemini 1.5 Pro analyzes the screen + prompt to generate the next action.
+    *   **Memory**:
+        *   *Short-term*: Session history in Firestore.
+        *   *Long-term*: Vector similarity search in Firestore for "few-shot" example retrieval.
+    *   **Audit**: All actions are transactionally logged to Cloud Spanner.
 
-You need two terminal windows.
+## 🛠️ Configuration
 
-### 1. Start the Server (Local)
+### Prerequisites
+- **Python 3.10+**
+- **Google Cloud Project** with the following APIs enabled:
+    - Gemini API (Generative Language)
+    - Cloud Spanner API
+    - Firestore API
 
-The server handles the AI processing. While designed for Cloud Run, you can run it locally for testing.
+### Environment Variables
 
-```powershell
-# Set your Google API Key
-$env:GOOGLE_API_KEY = "your_api_key_here"
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `GOOGLE_API_KEY` | API Key for Gemini 1.5 Pro | Required |
+| `GOOGLE_CLOUD_PROJECT` | GCP Project ID for Spanner/Firestore | Required |
+| `INTERCEPT_SERVER_URL` | URL of the deployed server | `https://...run.app` |
 
-# Start the server
+## 📦 Installation & Usage
+
+### 1. Server (Local Dev)
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Start FastAPI server
 uvicorn intercept.server.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### 2. Run the Client (Agent)
+### 2. Client (Agent)
 
-The client captures your screen and executes actions.
-
-```powershell
-# The agent defaults to the Cloud Run production URL:
-# https://production-adk-agent-zb4zadb5da-ew.a.run.app
-# You can override it if testing locally:
-# $env:INTERCEPT_SERVER_URL = "http://localhost:8000"
-
+```bash
 # Run the agent
 python -m intercept.client.agent "open chrome and search for shoes on amazon"
 ```
 
-## Cloud Deployment
+## 🛡️ Security & Safety
 
-To update the server code on Cloud Run (e.g., if you are the maintainer):
+- **Context Guardrails**: Automatically detects and blocks malicious commands before execution.
+- **PII Redaction**: Sensitive data patterns (SSN, CC) are redacted from logs.
+- **Human-in-the-loop**: The client runs locally, allowing the user to terminate the process (Fail-safe: Move mouse to corner).
 
-1. Use the provided `Dockerfile` (create one if missing based on previous instructions, or see below).
-2. Deploy the `intercept/server` folder to the Cloud Run service `production-adk-agent`.
+## 🧪 Testing
 
-   ```dockerfile
-   FROM python:3.9
-   WORKDIR /app
-   COPY requirements.txt .
-   RUN pip install -r requirements.txt
-   COPY intercept /app/intercept
-   CMD ["uvicorn", "intercept.server.main:app", "--host", "0.0.0.0", "--port", "8080"]
-   ```
+Run the comprehensive test suite covering guardrails, API endpoints, and mock integrations:
+
+```bash
+pytest tests/
+```

@@ -33,7 +33,11 @@ def execute_action(action_data):
     """Executes the action received from the server."""
     action = action_data.get("action")
     thought = action_data.get("thought")
+    warning = action_data.get("warning")
+    
     print(f"\nThought: {thought}")
+    if warning:
+        print(f"WARNING: {warning}")
     print(f"Action: {action}")
 
     try:

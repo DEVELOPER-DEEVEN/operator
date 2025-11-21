@@ -9,8 +9,27 @@ from pydantic import BaseModel
 import google.generativeai as genai
 from google.cloud import firestore
 from fastapi.middleware.cors import CORSMiddleware
+from intercept.server.spanner_client import SpannerClient
+from intercept.server.vector_store import VectorStore
+from intercept.server.guardrails import GuardrailService
+import time
 
 app = FastAPI()
+
+# Performance Metrics Middleware
+@app.middleware("http")
+async def add_process_time_header(request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
+    print(f"Request processed in {process_time:.4f} seconds")
+    return response
+
+# Initialize Services
+spanner_client = SpannerClient()
+vector_store = VectorStore()
+guardrails = GuardrailService()
 
 # Allow all origins for demo purposes
 app.add_middleware(
@@ -44,6 +63,7 @@ class ActionResponse(BaseModel):
     text: Optional[str] = None
     key: Optional[str] = None
     session_id: Optional[str] = None
+    warning: Optional[str] = None
 
 SYSTEM_PROMPT = """
 You are an autonomous agent running on a Windows computer.
@@ -81,6 +101,16 @@ async def process_step(
     session_id: str = Form(default=None),
     previous_actions_json: str = Form(alias="previous_actions", default="[]")
 ):
+    # 1. Guardrail Check
+    is_safe, reason = guardrails.validate_prompt(prompt)
+    if not is_safe:
+        return ActionResponse(
+            thought="Safety violation detected.",
+            action="fail",
+            warning=reason,
+            session_id=session_id
+        )
+
     # Ensure we have a session ID
     if not session_id:
         session_id = str(uuid.uuid4())
@@ -122,7 +152,7 @@ async def process_step(
         contents = await file.read()
 
         # Create the model
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-1.5-pro')
 
         # Prepare the input for Gemini
         full_prompt = [
@@ -132,6 +162,11 @@ async def process_step(
             "Current Screen State:",
             {"mime_type": file.content_type or "image/png", "data": contents}
         ]
+
+        # Add few-shot examples from VectorStore
+        similar_tasks = vector_store.find_similar(prompt)
+        if similar_tasks:
+            full_prompt.insert(1, f"Similar Past Experiences: {json.dumps(similar_tasks)}")
 
         response = model.generate_content(full_prompt)
 
@@ -172,6 +207,13 @@ async def process_step(
                 print(f"Error writing to Firestore: {e}")
 
         # Return the response with session_id so client can persist it
+        # Log to Spanner
+        spanner_client.log_transaction(session_id, response_data.get("action"), "success")
+        
+        # Store experience in VectorStore if successful
+        if response_data.get("action") == "done":
+            vector_store.store_experience(prompt, "done", "success")
+
         return ActionResponse(**response_data, session_id=session_id)
 
     except Exception as e:

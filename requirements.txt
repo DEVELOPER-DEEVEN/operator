@@ -8,3 +8,6 @@ mss
 pillow
 pydantic
 google-cloud-firestore
+google-cloud-spanner
+pytest
+httpx
